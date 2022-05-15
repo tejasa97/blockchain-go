@@ -29,14 +29,21 @@ func (n *Node) Run() error {
 }
 
 func (n *Node) serveHttp() error {
+	// Init server, mux, and controller
 	handler := http.NewServeMux()
+	httpController := NewController()
+
+	// URL mappings
+	handler.HandleFunc("/node/status", func(w http.ResponseWriter, r *http.Request) {
+		httpController.getStatus(w, r, n.state)
+	})
 
 	handler.HandleFunc("/balances/list", func(w http.ResponseWriter, r *http.Request) {
-		listBalancesHandler(w, r, n.state)
+		httpController.listBalances(w, r, n.state)
 	})
 
 	handler.HandleFunc("/tx/add", func(w http.ResponseWriter, r *http.Request) {
-		addTxHandler(w, r, n.state)
+		httpController.addTx(w, r, n.state)
 	})
 
 	server := &http.Server{Addr: fmt.Sprintf(":%d", HTTP_PORT), Handler: handler}
