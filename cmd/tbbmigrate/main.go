@@ -14,10 +14,12 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	defer state.Close()
 
 	// Prepare the blocks
 	block0 := database.NewBlock(
 		database.Hash{},
+		state.GetLatestBlockHeader().Number+1,
 		uint64(time.Now().Unix()),
 		[]database.Tx{
 			database.NewTx("tejas", "tejas", 3, ""),
@@ -29,10 +31,9 @@ func main() {
 	block0Hash := state.GetLatestBlockHash()
 	fmt.Printf("latest block hash %x", block0Hash)
 
-	defer state.Close()
-
 	block1 := database.NewBlock(
 		block0Hash,
+		state.GetLatestBlockHeader().Number+1,
 		uint64(time.Now().Unix()),
 		[]database.Tx{
 			database.NewTx("tejas", "rohit", 2000, ""),

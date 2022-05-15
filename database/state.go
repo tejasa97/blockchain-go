@@ -62,7 +62,7 @@ func (s *State) AddBlock(block Block) (Hash, error) {
 		return Hash{}, err
 	}
 
-	blockFs := BlockFS{blockHash, block}
+	blockFs := BlockFS{Key: blockHash, Value: block}
 	blockFsJson, err := json.Marshal(blockFs)
 	if err != nil {
 		return Hash{}, err
@@ -77,7 +77,7 @@ func (s *State) AddBlock(block Block) (Hash, error) {
 	}
 
 	s.Balances = pendingState.Balances
-	s.latestBlock = pendingState.latestBlock
+	s.latestBlock = block
 	s.latestBlockHash = blockHash
 
 	return blockHash, nil
@@ -104,7 +104,7 @@ func (s *State) Add(tx Tx) error {
 
 func (s *State) Persist() (Hash, error) {
 
-	block := NewBlock(s.latestBlockHash, uint64(time.Now().Unix()), s.txMempool)
+	block := NewBlock(s.latestBlockHash, s.GetLatestBlockHeader().Number+1, uint64(time.Now().Unix()), s.txMempool)
 
 	blockHash, err := block.Hash()
 	if err != nil {
@@ -127,6 +127,7 @@ func (s *State) Persist() (Hash, error) {
 	}
 
 	s.latestBlockHash = blockHash
+	s.latestBlock = block
 	s.txMempool = []Tx{}
 
 	return s.latestBlockHash, nil
