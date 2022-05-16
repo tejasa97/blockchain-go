@@ -19,7 +19,7 @@ func (h controller) listBalances(w http.ResponseWriter, r *http.Request, state *
 }
 
 func (h controller) getStatus(w http.ResponseWriter, r *http.Request, node *Node) {
-	writeRes(w, StatusRes{BlockHash: node.state.GetLatestBlockHash(), BlockNumber: node.state.GetLatestBlockHeader().Number, KnownPeers: node.knownPeers})
+	writeRes(w, node.getState())
 }
 
 func (h controller) addTx(w http.ResponseWriter, r *http.Request, state *database.State) {

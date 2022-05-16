@@ -29,16 +29,15 @@ func txnAddCmd() *cobra.Command {
 	var txnAddCmd = &cobra.Command{
 		Use:   "add",
 		Short: "Adds a new TX to database",
-		// PreRunE: func(cmd *cobra.Command, args []string) error {
-		// 	return incorrectUsageErr()
-		// },
 		Run: func(cmd *cobra.Command, args []string) {
 
+			// Get flags
 			from, _ := cmd.Flags().GetString("from")
 			to, _ := cmd.Flags().GetString("to")
 			value, _ := cmd.Flags().GetUint("value")
 			data, _ := cmd.Flags().GetString("data")
 
+			// Execute operation
 			fromAcc := database.NewAccount(from)
 			toAcc := database.NewAccount(to)
 
@@ -49,7 +48,6 @@ func txnAddCmd() *cobra.Command {
 				fmt.Println(os.Stderr, err)
 				os.Exit(1)
 			}
-
 			defer state.Close()
 
 			err = state.Add(tx)
@@ -65,7 +63,6 @@ func txnAddCmd() *cobra.Command {
 			}
 
 			fmt.Printf("Snapshot: %x", snapshot)
-
 			fmt.Println("TX successfully added to the ledger!")
 		},
 	}
