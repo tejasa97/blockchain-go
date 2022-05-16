@@ -19,4 +19,5 @@ type TxAddRes struct {
 type StatusRes struct {
 	BlockHash   database.Hash `json:"block_hash"`
 	BlockNumber uint64        `json:"block_number"`
+	KnownPeers  []PeerNode    `json:"known_peers""`
 }

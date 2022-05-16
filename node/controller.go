@@ -7,7 +7,7 @@ import (
 
 type Controller interface {
 	listBalances(w http.ResponseWriter, r *http.Request, state *database.State)
-	getStatus(w http.ResponseWriter, r *http.Request, state *database.State)
+	getStatus(w http.ResponseWriter, r *http.Request, node *Node)
 	addTx(w http.ResponseWriter, r *http.Request, state *database.State)
 }
 
@@ -18,8 +18,8 @@ func (h controller) listBalances(w http.ResponseWriter, r *http.Request, state *
 	writeRes(w, BalancesRes{state.GetLatestBlockHash(), state.Balances})
 }
 
-func (h controller) getStatus(w http.ResponseWriter, r *http.Request, state *database.State) {
-	writeRes(w, StatusRes{BlockHash: state.GetLatestBlockHash(), BlockNumber: state.GetLatestBlockHeader().Number})
+func (h controller) getStatus(w http.ResponseWriter, r *http.Request, node *Node) {
+	writeRes(w, StatusRes{BlockHash: node.state.GetLatestBlockHash(), BlockNumber: node.state.GetLatestBlockHeader().Number, KnownPeers: node.knownPeers})
 }
 
 func (h controller) addTx(w http.ResponseWriter, r *http.Request, state *database.State) {

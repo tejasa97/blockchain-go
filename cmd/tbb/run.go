@@ -12,7 +12,8 @@ var runCmd = &cobra.Command{
 	Short: "Launches the Node and its HTTP api",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		node := node.NewNode()
+		bootstrapNode := node.NewPeerNode("localhost", 8000, true, true)
+		node := node.NewNode(8001, *bootstrapNode)
 		err := node.Run()
 		if err != nil {
 			fmt.Println(err)
