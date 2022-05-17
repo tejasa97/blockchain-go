@@ -1,14 +1,20 @@
 package node
 
 import (
+	"errors"
 	"github.com/tejasa97/go-block/database"
 	"net/http"
+)
+
+const (
+	endpointSyncQueryKeyFromBlock = "fromHash"
 )
 
 type Controller interface {
 	listBalances(w http.ResponseWriter, r *http.Request, state *database.State)
 	getStatus(w http.ResponseWriter, r *http.Request, node *Node)
 	addTx(w http.ResponseWriter, r *http.Request, state *database.State)
+	syncBlocks(w http.ResponseWriter, r *http.Request)
 }
 
 type controller struct {
@@ -20,6 +26,31 @@ func (h controller) listBalances(w http.ResponseWriter, r *http.Request, state *
 
 func (h controller) getStatus(w http.ResponseWriter, r *http.Request, node *Node) {
 	writeRes(w, node.getState())
+}
+
+func (h controller) syncBlocks(w http.ResponseWriter, r *http.Request) {
+
+	reqHash := r.URL.Query().Get(endpointSyncQueryKeyFromBlock)
+	if reqHash == "" {
+		writeErrRes(w, errors.New("Missing blockhash"))
+		return
+	}
+
+	hash := database.Hash{}
+	err := hash.UnmarshalText([]byte(reqHash))
+	if err != nil {
+		writeErrRes(w, errors.New("Invalid hash format"))
+		return
+	}
+
+	// Read new blocks from the DB
+	blocks, err := database.GetBlocksAfter(hash)
+	if err != nil {
+		writeErrRes(w, err)
+		return
+	}
+
+	writeRes(w, SyncRes{Blocks: blocks})
 }
 
 func (h controller) addTx(w http.ResponseWriter, r *http.Request, state *database.State) {

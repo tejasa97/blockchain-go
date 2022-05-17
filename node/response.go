@@ -21,3 +21,7 @@ type StateRes struct {
 	BlockNumber uint64              `json:"block_number"`
 	KnownPeers  map[string]PeerNode `json:"known_peers""`
 }
+
+type SyncRes struct {
+	Blocks []database.Block `json:"blocks"`
+}

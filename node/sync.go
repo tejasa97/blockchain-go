@@ -8,7 +8,7 @@ import (
 )
 
 func (n *Node) sync(ctx context.Context) error {
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(45 * time.Second)
 
 	for {
 		select {

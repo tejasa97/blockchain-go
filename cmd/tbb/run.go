@@ -20,7 +20,7 @@ var runCmd = &cobra.Command{
 		bootstrapNode := &node.PeerNode{}
 
 		if !isBootstrap {
-			bootstrapNode = node.NewPeerNode("localhost", node.BOOTSTRAP_NODE_PORT, true, true)
+			bootstrapNode = node.NewPeerNode(node.BOOTSTRAP_NODE_IP, node.BOOTSTRAP_NODE_PORT, true, true)
 		} else {
 			nodePort = node.BOOTSTRAP_NODE_PORT
 		}

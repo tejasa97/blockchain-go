@@ -9,6 +9,7 @@ import (
 
 const (
 	endpointNodeStatus = "/node/status"
+	endpointSync       = "/node/sync"
 	BOOTSTRAP_NODE_IP  = "localhost"
 )
 const (
@@ -65,6 +66,9 @@ func (n *Node) serveHttp() error {
 	// URL mappings
 	handler.HandleFunc("/node/status", func(w http.ResponseWriter, r *http.Request) {
 		httpController.getStatus(w, r, n)
+	})
+	handler.HandleFunc(endpointSync, func(w http.ResponseWriter, r *http.Request) {
+		httpController.syncBlocks(w, r)
 	})
 	handler.HandleFunc("/balances/list", func(w http.ResponseWriter, r *http.Request) {
 		httpController.listBalances(w, r, n.state)
