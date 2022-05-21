@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/tejasa97/go-block/database"
 	"net/http"
+	"time"
 )
 
 const (
@@ -62,20 +63,13 @@ func (h controller) addTx(w http.ResponseWriter, r *http.Request, state *databas
 	}
 
 	tx := database.NewTx(database.NewAccount(req.From), database.NewAccount(req.To), req.Value, req.Data)
-	err := state.Add(tx)
+	block := database.NewBlock(state.GetLatestBlockHash(), state.GetLatestBlockHeader().Number+1, uint64(time.Now().Unix()), []database.Tx{tx})
+	hash, err := state.AddBlock(block)
 	if err != nil {
 		writeErrRes(w, err)
-		return
 	}
 
-	// Persist to disk
-	hash, err := state.Persist()
-	if err != nil {
-		writeErrRes(w, err)
-		return
-	}
-
-	writeRes(w, TxAddRes{Success: true, Hash: hash})
+	writeRes(w, TxAddRes{Hash: hash})
 }
 
 func NewController() Controller {

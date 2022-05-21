@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"time"
 )
 
@@ -15,44 +16,39 @@ type State struct {
 
 	latestBlock     Block
 	latestBlockHash Hash
+	hasGenesisBlock bool
 
 	dbFile *os.File
 }
 
-func (s *State) apply(tx Tx) error {
-	if tx.IsReward() {
-		s.Balances[tx.To] += tx.Value
-		return nil
-	}
-
-	if tx.Value > s.Balances[tx.From] {
-		return fmt.Errorf("Insufficient balance!")
-	}
-
-	s.Balances[tx.From] -= tx.Value
-	s.Balances[tx.To] += tx.Value
-
-	return nil
-}
-
 func (s *State) Copy() State {
+	/*
+		Creates a deepcopy of the `State` object
+	*/
 
 	c := State{}
 	c.latestBlock = s.latestBlock
 	c.latestBlockHash = s.latestBlockHash
+	c.txMempool = make([]Tx, len(s.txMempool))
 	c.Balances = make(map[Account]uint)
 
 	for acc, balance := range s.Balances {
 		c.Balances[acc] = balance
 	}
 
+	for _, tx := range s.txMempool {
+		c.txMempool = append(c.txMempool, tx)
+	}
+
 	return c
 }
 func (s *State) AddBlock(block Block) (Hash, error) {
+	/*
+		Adds a `block` to the ledger (block.db)
+	*/
 
 	pendingState := s.Copy()
-
-	err := pendingState.applyBlock(block)
+	err := applyBlock(block, pendingState)
 	if err != nil {
 		return Hash{}, err
 	}
@@ -79,6 +75,7 @@ func (s *State) AddBlock(block Block) (Hash, error) {
 	s.Balances = pendingState.Balances
 	s.latestBlock = block
 	s.latestBlockHash = blockHash
+	s.hasGenesisBlock = true
 
 	return blockHash, nil
 }
@@ -89,17 +86,6 @@ func (s *State) GetLatestBlockHash() Hash {
 
 func (s *State) GetLatestBlockHeader() BlockHeader {
 	return s.latestBlock.Header
-}
-
-func (s *State) Add(tx Tx) error {
-	// Applies the transaction to the state
-	if err := s.apply(tx); err != nil {
-		return err
-	}
-
-	s.txMempool = append(s.txMempool, tx)
-
-	return nil
 }
 
 func (s *State) Persist() (Hash, error) {
@@ -128,7 +114,6 @@ func (s *State) Persist() (Hash, error) {
 
 	s.latestBlockHash = blockHash
 	s.latestBlock = block
-	s.txMempool = []Tx{}
 
 	return s.latestBlockHash, nil
 }
@@ -137,14 +122,66 @@ func (s *State) Close() error {
 	return s.dbFile.Close()
 }
 
-func (s *State) applyBlock(b Block) error {
+func applyBlock(b Block, state State) error {
 	// Applies the Block transactions to the state
+	// Block metadata is verified, as well as the transactions within - sufficient balances, etc
 
-	for _, tx := range b.TXs {
-		if err := s.apply(tx); err != nil {
+	nextExpectedBlockNumber := state.GetLatestBlockHeader().Number + 1
+
+	if state.hasGenesisBlock && b.Header.Number != nextExpectedBlockNumber {
+		return fmt.Errorf(
+			"next expected block number should be `$d` not `%d`",
+			nextExpectedBlockNumber,
+			b.Header.Number,
+		)
+	}
+
+	// validate incoming block parent hash equals the current (latest known) hash
+	if state.hasGenesisBlock && state.GetLatestBlockHeader().Number > 0 && !reflect.DeepEqual(b.Header.Parent, state.latestBlockHash) {
+		return fmt.Errorf(
+			"next block's parent hash must be `%x` not `%x`",
+			state.latestBlockHash,
+			b.Header.Parent,
+		)
+	}
+
+	return applyTXs(b.TXs, &state)
+}
+
+func applyTXs(txs []Tx, s *State) error {
+	// Applies all Transactions `txs` to the State `s`
+
+	for _, tx := range txs {
+		err := ApplyTx(tx, s)
+		if err != nil {
 			return err
 		}
 	}
+
+	return nil
+}
+
+// Applies a transaction `tx` to a State `s`
+func ApplyTx(tx Tx, s *State) error {
+
+	if tx.IsReward() {
+		s.Balances[tx.To] += tx.Value
+		return nil
+	}
+
+	// Validate sender balance
+	if tx.Value > s.Balances[tx.From] {
+		return fmt.Errorf(
+			"invalid TX. Sender `%s`'s balance is less than TX value (`%d` < `%d`)",
+			tx.From,
+			s.Balances[tx.From],
+			tx.Value,
+		)
+	}
+
+	// Update balances
+	s.Balances[tx.From] -= tx.Value
+	s.Balances[tx.To] += tx.Value
 
 	return nil
 }
@@ -191,7 +228,7 @@ func NewStateFromDisk() (*State, error) {
 		}
 
 		// Apply the block
-		err = state.applyBlock(blockFs.Value)
+		err = applyBlock(blockFs.Value, *state)
 		if err != nil {
 			return nil, err
 		}
@@ -203,6 +240,7 @@ func NewStateFromDisk() (*State, error) {
 
 		state.latestBlock = blockFs.Value
 		state.latestBlockHash = blockHash
+		state.hasGenesisBlock = true
 	}
 
 	return state, nil
