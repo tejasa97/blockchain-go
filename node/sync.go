@@ -3,18 +3,28 @@ package node
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 )
 
+//type Sync interface {
+//	performSync() error
+//}
+//
+//type sync struct {
+//	apiClient apiClient
+//	node      *Node
+//}
+
+var nodeApiClient = NewApiClient()
+
 func (n *Node) sync(ctx context.Context) error {
-	ticker := time.NewTicker(45 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 
 	for {
 		select {
 		case <-ticker.C:
 			fmt.Println("Searching for new Peers and blocks..")
-			n.fetchNewBlocksAndPeers()
+			n.doSync()
 
 		case <-ctx.Done():
 			ticker.Stop()
@@ -23,50 +33,63 @@ func (n *Node) sync(ctx context.Context) error {
 	return nil
 }
 
-func (n *Node) fetchNewBlocksAndPeers() error {
+func (n *Node) doSync() error {
 
 	for _, peer := range n.knownPeers {
 		// Same node
-		if n.info.IP == peer.IP && n.info.Port == peer.Port {
+		if n.isSelf(peer) {
 			continue
 		}
 
-		nodeState, err := getPeerStatus(peer)
+		peerState, err := nodeApiClient.getPeerStatus(peer)
+		if err != nil {
+			fmt.Printf("Error: %s\n", err)
+			fmt.Printf("removing Peer %s from `KnownPeers`", peer.tcpAddress())
+			n.removePeer(peer)
+			continue
+		}
+		_, err = nodeApiClient.addPeer(*n, peer)
 		if err != nil {
 			fmt.Printf("Error: %s\n", err)
 			continue
 		}
 
-		localBlockNumber := n.state.GetLatestBlockHeader().Number
-		if localBlockNumber < nodeState.BlockNumber {
-			newBlocksCount := nodeState.BlockNumber - localBlockNumber
-			fmt.Printf("Found %d new blocks from Peer %s\n", newBlocksCount, peer.IP)
-		}
-
-		for _, peerNode := range nodeState.KnownPeers {
-			newPeer, isKnownPeer := n.knownPeers[peerNode.tcpAddress()]
-			if !isKnownPeer {
-				fmt.Printf("Found new peer %s \n", peer.tcpAddress())
-				n.knownPeers[peerNode.tcpAddress()] = newPeer
-			}
-		}
+		n.updateBlocksFromPeer(peerState, peer)
+		n.updateKnownPeers(peerState)
 	}
 
 	return nil
 }
 
-func getPeerStatus(peer PeerNode) (StateRes, error) {
-	url := fmt.Sprintf("%s://%s%s", peer.apiProtocol(), peer.tcpAddress(), endpointNodeStatus)
-	res, err := http.Get(url)
-	if err != nil {
-		return StateRes{}, err
+func (n *Node) updateBlocksFromPeer(peerState StateRes, peerNode PeerNode) error {
+	/*
+		Updates blocks from a Peer
+	*/
+
+	localBlockNumber := n.state.GetLatestBlockHeader().Number
+	if peerState.BlockNumber <= localBlockNumber {
+		return nil
 	}
 
-	nodeStateRes := StateRes{}
-	err = readRes(res, &nodeStateRes)
+	// Update the new blocks
+	newBlocksCount := peerState.BlockNumber - localBlockNumber
+	fmt.Printf("Found %d new blocks from Peer %s\n", newBlocksCount, peerNode.tcpAddress())
+	blocks, err := nodeApiClient.queryBlocks(peerNode, n.state.GetLatestBlockHash())
 	if err != nil {
-		return StateRes{}, err
+		fmt.Printf("Error querying blocks from Peer %s\n", peerNode.tcpAddress())
+		return err
 	}
 
-	return nodeStateRes, nil
+	for _, block := range blocks {
+		n.state.AddBlock(block)
+	}
+
+	return nil
+}
+
+func (n *Node) updateKnownPeers(peerState StateRes) error {
+	for _, peerNode := range peerState.KnownPeers {
+		n.addPeer(peerNode)
+	}
+	return nil
 }

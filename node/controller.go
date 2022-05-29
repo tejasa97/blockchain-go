@@ -15,7 +15,8 @@ type Controller interface {
 	listBalances(w http.ResponseWriter, r *http.Request, state *database.State)
 	getStatus(w http.ResponseWriter, r *http.Request, node *Node)
 	addTx(w http.ResponseWriter, r *http.Request, state *database.State)
-	syncBlocks(w http.ResponseWriter, r *http.Request)
+	queryBlocks(w http.ResponseWriter, r *http.Request)
+	addPeer(w http.ResponseWriter, r *http.Request, node *Node)
 }
 
 type controller struct {
@@ -29,7 +30,22 @@ func (h controller) getStatus(w http.ResponseWriter, r *http.Request, node *Node
 	writeRes(w, node.getState())
 }
 
-func (h controller) syncBlocks(w http.ResponseWriter, r *http.Request) {
+func (h controller) addPeer(w http.ResponseWriter, r *http.Request, node *Node) {
+	var req AddNodeReq
+
+	if err := readReq(r, &req); err != nil {
+		writeErrRes(w, err)
+		return
+	}
+
+	// Add the peer to the Node's `KnownPeers`
+	req.IsActive = true
+	node.addPeer(req.getPeerNode())
+
+	writeRes(w, node.getState())
+}
+
+func (h controller) queryBlocks(w http.ResponseWriter, r *http.Request) {
 
 	reqHash := r.URL.Query().Get(endpointSyncQueryKeyFromBlock)
 	if reqHash == "" {
@@ -51,7 +67,7 @@ func (h controller) syncBlocks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeRes(w, SyncRes{Blocks: blocks})
+	writeRes(w, BlocksRes{Blocks: blocks})
 }
 
 func (h controller) addTx(w http.ResponseWriter, r *http.Request, state *database.State) {
