@@ -2,9 +2,9 @@ package node
 
 import (
 	"errors"
+	"fmt"
 	"github.com/tejasa97/go-block/database"
 	"net/http"
-	"time"
 )
 
 const (
@@ -14,7 +14,7 @@ const (
 type Controller interface {
 	listBalances(w http.ResponseWriter, r *http.Request, state *database.State)
 	getStatus(w http.ResponseWriter, r *http.Request, node *Node)
-	addTx(w http.ResponseWriter, r *http.Request, state *database.State)
+	addTx(w http.ResponseWriter, r *http.Request, node *Node)
 	queryBlocks(w http.ResponseWriter, r *http.Request)
 	addPeer(w http.ResponseWriter, r *http.Request, node *Node)
 }
@@ -70,7 +70,7 @@ func (h controller) queryBlocks(w http.ResponseWriter, r *http.Request) {
 	writeRes(w, BlocksRes{Blocks: blocks})
 }
 
-func (h controller) addTx(w http.ResponseWriter, r *http.Request, state *database.State) {
+func (h controller) addTx(w http.ResponseWriter, r *http.Request, node *Node) {
 	var req TxAddReq
 
 	if err := readReq(r, &req); err != nil {
@@ -78,14 +78,25 @@ func (h controller) addTx(w http.ResponseWriter, r *http.Request, state *databas
 		return
 	}
 
+	from := database.NewAccount(req.From)
+	if from == "" {
+		writeErrRes(w, fmt.Errorf("%s is an invalid 'from' sender", from))
+		return
+	}
+
 	tx := database.NewTx(database.NewAccount(req.From), database.NewAccount(req.To), req.Value, req.Data)
-	block := database.NewBlock(state.GetLatestBlockHash(), state.GetLatestBlockHeader().Number+1, uint64(time.Now().Unix()), []database.Tx{tx})
-	hash, err := state.AddBlock(block)
+	txHash, err := tx.Hash()
+	if err != nil {
+		writeErrRes(w, fmt.Errorf("Invalid TX hash"))
+		return
+	}
+
+	err = node.AddPendingTX(tx, node.info)
 	if err != nil {
 		writeErrRes(w, err)
 	}
 
-	writeRes(w, TxAddRes{Hash: hash})
+	writeRes(w, TxAddRes{Success: true, Hash: txHash})
 }
 
 func NewController() Controller {

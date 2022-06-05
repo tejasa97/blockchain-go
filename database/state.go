@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"time"
 )
 
 type State struct {
@@ -88,35 +87,39 @@ func (s *State) GetLatestBlockHeader() BlockHeader {
 	return s.latestBlock.Header
 }
 
-func (s *State) Persist() (Hash, error) {
-
-	block := NewBlock(s.latestBlockHash, s.GetLatestBlockHeader().Number+1, uint64(time.Now().Unix()), s.txMempool)
-
-	blockHash, err := block.Hash()
-	if err != nil {
-		return Hash{}, err
-	}
-
-	blockFs := BlockFS{blockHash, block}
-
-	blockFsJson, err := json.Marshal(blockFs)
-	if err != nil {
-		return Hash{}, err
-	}
-
-	fmt.Printf("Persisting new Block to disk:\n")
-	fmt.Printf("\t%s\n", blockFsJson)
-
-	_, err = s.dbFile.Write(append(blockFsJson, '\n'))
-	if err != nil {
-		return Hash{}, err
-	}
-
-	s.latestBlockHash = blockHash
-	s.latestBlock = block
-
-	return s.latestBlockHash, nil
+func (s *State) GetNextBlockNumber() uint64 {
+	return s.GetLatestBlockHeader().Number + 1
 }
+
+//func (s *State) Persist() (Hash, error) {
+//
+//	block := NewBlock(s.latestBlockHash, s.GetLatestBlockHeader().Number+1, uint64(time.Now().Unix()), s.txMempool)
+//
+//	blockHash, err := block.Hash()
+//	if err != nil {
+//		return Hash{}, err
+//	}
+//
+//	blockFs := BlockFS{blockHash, block}
+//
+//	blockFsJson, err := json.Marshal(blockFs)
+//	if err != nil {
+//		return Hash{}, err
+//	}
+//
+//	fmt.Printf("Persisting new Block to disk:\n")
+//	fmt.Printf("\t%s\n", blockFsJson)
+//
+//	_, err = s.dbFile.Write(append(blockFsJson, '\n'))
+//	if err != nil {
+//		return Hash{}, err
+//	}
+//
+//	s.latestBlockHash = blockHash
+//	s.latestBlock = block
+//
+//	return s.latestBlockHash, nil
+//}
 
 func (s *State) Close() error {
 	return s.dbFile.Close()

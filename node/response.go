@@ -20,6 +20,7 @@ type StateRes struct {
 	BlockHash   database.Hash       `json:"block_hash"`
 	BlockNumber uint64              `json:"block_number"`
 	KnownPeers  map[string]PeerNode `json:"known_peers""`
+	PendingTXs  []database.Tx       `json:"pending_txs"`
 }
 
 type BlocksRes struct {

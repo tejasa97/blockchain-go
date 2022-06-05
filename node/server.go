@@ -24,7 +24,7 @@ func (n *Node) serveHttp() error {
 		httpController.listBalances(w, r, n.state)
 	})
 	handler.HandleFunc("/tx/add", func(w http.ResponseWriter, r *http.Request) {
-		httpController.addTx(w, r, n.state)
+		httpController.addTx(w, r, n)
 	})
 
 	server := &http.Server{Addr: fmt.Sprintf(":%d", n.info.Port), Handler: handler}

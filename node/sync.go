@@ -36,7 +36,6 @@ func (n *Node) sync(ctx context.Context) error {
 func (n *Node) doSync() error {
 
 	for _, peer := range n.knownPeers {
-		// Same node
 		if n.isSelf(peer) {
 			continue
 		}
@@ -74,20 +73,31 @@ func (n *Node) updateBlocksFromPeer(peerState StateRes, peerNode PeerNode) error
 	// Update the new blocks
 	newBlocksCount := peerState.BlockNumber - localBlockNumber
 	fmt.Printf("Found %d new blocks from Peer %s\n", newBlocksCount, peerNode.tcpAddress())
+	fmt.Printf("latest block hash is", n.state.GetLatestBlockHash().Hex())
 	blocks, err := nodeApiClient.queryBlocks(peerNode, n.state.GetLatestBlockHash())
+	fmt.Printf("blocks are", blocks)
 	if err != nil {
 		fmt.Printf("Error querying blocks from Peer %s\n", peerNode.tcpAddress())
 		return err
 	}
 
 	for _, block := range blocks {
-		n.state.AddBlock(block)
+		err := n.addBlock(block)
+		if err != nil {
+			return err
+		}
+
+		n.newSyncedBlocks <- block
 	}
 
 	return nil
 }
 
 func (n *Node) updateKnownPeers(peerState StateRes) error {
+	/*
+		Updates the `KnownPeers`
+	*/
+
 	for _, peerNode := range peerState.KnownPeers {
 		n.addPeer(peerNode)
 	}
